@@ -3,9 +3,8 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::{self, Write};
 use chrono::{DateTime, Utc};
-use log::{debug, error, info, warn};
+use log::{debug, warn};
 use zip::{ZipWriter, CompressionMethod};
-use std::collections::HashMap;
 
 /// Enhanced backup item discovery with better file/folder scanning
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

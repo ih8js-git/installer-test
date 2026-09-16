@@ -33,6 +33,7 @@ pub struct FooterButton {
 
 /// Home page configuration
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Default)]
 pub struct HomePageConfig {
     pub stats: HomePageStats,
     pub footer_button: FooterButton,
@@ -69,18 +70,10 @@ impl Default for FooterButton {
     }
 }
 
-impl Default for HomePageConfig {
-    fn default() -> Self {
-        Self {
-            stats: HomePageStats::default(),
-            footer_button: FooterButton::default(),
-        }
-    }
-}
 
 /// Load the changelog from the repository
 pub async fn fetch_changelog(
-    modpack_source: &str, 
+    _modpack_source: &str, 
     http_client: &crate::CachedHttpClient
 ) -> Result<Changelog, String> {
     

@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use log::{debug, error};
 
 use isahc::AsyncReadResponseExt;

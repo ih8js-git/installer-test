@@ -290,7 +290,7 @@ pub fn find_mmc_like_launcher(launcher: MmcLikeLauncher) -> Option<MmcLikeComman
         }
     }
 
-    let (win_name, mac_rel, linux_name) = launcher.exe_names();
+    let (_win_name, _mac_rel, linux_name) = launcher.exe_names();
 
     #[cfg(target_os = "windows")]
     {
@@ -425,11 +425,7 @@ fn load_cached_mmc_path(launcher: MmcLikeLauncher) -> Option<MmcLikeCommand> {
     let content = content.trim();
     if let Some(rest) = content.strip_prefix("direct:") {
         Some(MmcLikeCommand::Direct(PathBuf::from(rest)))
-    } else if let Some(rest) = content.strip_prefix("flatpak:") {
-        Some(MmcLikeCommand::Flatpak(rest.to_string()))
-    } else {
-        None
-    }
+    } else { content.strip_prefix("flatpak:").map(|rest| MmcLikeCommand::Flatpak(rest.to_string())) }
 }
 
 /// Get a cached or freshly searched launcher path

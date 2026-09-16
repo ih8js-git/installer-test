@@ -22,7 +22,7 @@ pub struct IntegratedFeaturesProps {
 #[component]
 pub fn IntegratedFeatures(mut props: IntegratedFeaturesProps) -> Element {
     // Create a signal to track expanded categories
-    let mut expanded_categories = use_signal(|| Vec::<String>::new());
+    let mut expanded_categories = use_signal(Vec::<String>::new);
     
     // Group mods by category
     let mut categories: std::collections::BTreeMap<String, Vec<ModComponent>> = std::collections::BTreeMap::new();
@@ -36,7 +36,7 @@ pub fn IntegratedFeatures(mut props: IntegratedFeaturesProps) -> Element {
             if !search_term.is_empty() {
                 let name_match = component.name.to_lowercase().contains(search_term);
                 let description_match = component.description.as_ref()
-                    .map_or(false, |desc| desc.to_lowercase().contains(search_term));
+                    .is_some_and(|desc| desc.to_lowercase().contains(search_term));
                     
                 if !name_match && !description_match {
                     continue;
@@ -45,11 +45,11 @@ pub fn IntegratedFeatures(mut props: IntegratedFeaturesProps) -> Element {
         }
         
         let category = component.category.clone().unwrap_or_else(|| "Uncategorized".to_string());
-        categories.entry(category).or_insert_with(Vec::new).push(component.clone());
+        categories.entry(category).or_default().push(component.clone());
     }
     
     // Check if no results match the filter
-    let no_results = categories.is_empty() && filter.as_ref().map_or(false, |term| !term.is_empty());
+    let no_results = categories.is_empty() && filter.as_ref().is_some_and(|term| !term.is_empty());
     
     // Functions to toggle category expansion
     let mut toggle_category = move |category: String| {
@@ -65,7 +65,7 @@ pub fn IntegratedFeatures(mut props: IntegratedFeaturesProps) -> Element {
     };
     
     // Function to toggle all features in a category
-    let mut toggle_all_in_category = move |category: &str, components: &[ModComponent], enable: bool| {
+    let mut toggle_all_in_category = move |_category: &str, components: &[ModComponent], enable: bool| {
         // Get ids for all mods in this category
         let category_ids: Vec<String> = components.iter()
             .map(|comp| comp.id.clone())
@@ -117,7 +117,7 @@ pub fn IntegratedFeatures(mut props: IntegratedFeaturesProps) -> Element {
                     for preset in &props.presets {
                         {
                             let preset_id = preset.id.clone();
-                            let is_selected = props.selected_preset.read().as_ref().map_or(false, |id| id == &preset_id);
+                            let is_selected = props.selected_preset.read().as_ref() == Some(&preset_id);
                             
                             rsx! {
                                 div {
@@ -237,7 +237,7 @@ pub fn IntegratedFeatures(mut props: IntegratedFeaturesProps) -> Element {
                                                 {
                                                     let component_id = component.id.clone();
                                                     let is_enabled = props.enabled_features.read().contains(&component_id);
-                                                    let toggle_feature = props.toggle_feature.clone();
+                                                    let toggle_feature = props.toggle_feature;
                                                     
                                                     rsx! {
                                                         div { 

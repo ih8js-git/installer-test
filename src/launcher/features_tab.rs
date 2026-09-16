@@ -73,7 +73,7 @@ pub fn FeaturesTab(
     let installation_id_for_effect = installation_id.clone();
     let universal_manifest_for_apply = universal_manifest.clone();
     let universal_manifest_for_toggle = universal_manifest.clone();
-    let universal_manifest_for_count = universal_manifest.clone();
+    let _universal_manifest_for_count = universal_manifest.clone();
     let universal_manifest_for_render = universal_manifest.clone();
     
     // Track if we've initialized from session state (not mutable)
@@ -82,9 +82,9 @@ pub fn FeaturesTab(
     // Initialize preset state based on installation OR session state
     use_effect({
         let installation_id = installation_id_for_effect.clone();
-        let mut selected_preset = selected_preset.clone();
-        let mut enabled_features = enabled_features.clone();
-        let mut session_initialized = session_initialized.clone();
+        let mut selected_preset = selected_preset;
+        let mut enabled_features = enabled_features;
+        let mut session_initialized = session_initialized;
         
         move || {
             // Skip if already initialized from session
@@ -127,9 +127,9 @@ pub fn FeaturesTab(
     // Save to session state whenever features or preset changes
     use_effect({
         let installation_id = installation_id_for_session.clone();
-        let selected_preset = selected_preset.clone();
-        let enabled_features = enabled_features.clone();
-        let session_initialized = session_initialized.clone();
+        let selected_preset = selected_preset;
+        let enabled_features = enabled_features;
+        let session_initialized = session_initialized;
         
         move || {
             // Only save to session if we've initialized
@@ -267,7 +267,7 @@ pub fn FeaturesTab(
                     let dependent_features: Vec<String> = all_components.iter()
                         .filter(|c| {
                             features.contains(&c.id) && 
-                            c.dependencies.as_ref().map_or(false, |deps| deps.contains(&feature_id))
+                            c.dependencies.as_ref().is_some_and(|deps| deps.contains(&feature_id))
                         })
                         .map(|c| c.id.clone())
                         .collect();
@@ -379,7 +379,7 @@ pub fn FeaturesTab(
                 for preset in presets.iter().filter(|p| p.id != "custom") {
                     {
                         let preset_id = preset.id.clone();
-                        let is_selected = selected_preset.read().as_ref().map_or(false, |id| id == &preset_id);
+                        let is_selected = selected_preset.read().as_ref() == Some(&preset_id);
                         let mut apply_preset_clone = apply_preset.clone();
                         let has_trending = preset.trending.unwrap_or(false);
                         
@@ -564,8 +564,8 @@ pub fn FeaturesTab(
                         if let Some(manifest) = &universal_manifest_for_render {
                             render_all_features_sections(
                                 manifest.clone(),
-                                enabled_features.clone(),
-                                filter_text.clone(),
+                                enabled_features,
+                                filter_text,
                                 toggle_feature
                             )
                         } else {
@@ -608,13 +608,12 @@ fn render_all_features_sections(
                 id: include.id.clone(),
                 name: include.name.clone().unwrap_or_else(|| {
                     // Better name extraction from location
-                    include.location.split('/').last()
+                    include.location.split('/').next_back()
                         .unwrap_or(&include.location)
                         .trim_end_matches(".zip")
                         .trim_end_matches(".json")
                         .trim_end_matches(".txt")
-                        .replace('_', " ")
-                        .replace('-', " ")
+                        .replace(['_', '-'], " ")
                 }),
                 description: include.description.clone()
                     .or_else(|| Some(format!("Configuration: {}", include.location))),
@@ -642,16 +641,16 @@ fn render_all_features_sections(
         all_components.push(ModComponent {
             id: remote.id.clone(),
             name: remote.name.clone().unwrap_or_else(|| {
-                remote.id.replace('_', " ").replace('-', " ")
+                remote.id.replace(['_', '-'], " ")
             }),
             description: remote.description.clone().or_else(|| {
                 Some(format!("Remote content from: {}", 
-                    remote.location.split('/').last().unwrap_or("remote source")))
+                    remote.location.split('/').next_back().unwrap_or("remote source")))
             }),
             source: "remote_include".to_string(),
             location: remote.location.clone(),
             version: remote.version.clone(),
-            path: remote.path.as_ref().map(|p| std::path::PathBuf::from(p)),
+            path: remote.path.as_ref().map(std::path::PathBuf::from),
             optional: remote.optional,
             default_enabled: remote.default_enabled,
             authors: remote.authors.clone(),
@@ -674,9 +673,9 @@ fn render_all_features_sections(
             .filter(|comp| {
                 let name_match = comp.name.to_lowercase().contains(&filter);
                 let desc_match = comp.description.as_ref()
-                    .map_or(false, |desc| desc.to_lowercase().contains(&filter));
+                    .is_some_and(|desc| desc.to_lowercase().contains(&filter));
                 let category_match = comp.category.as_ref()
-                    .map_or(false, |cat| cat.to_lowercase().contains(&filter));
+                    .is_some_and(|cat| cat.to_lowercase().contains(&filter));
                 let id_match = comp.id.to_lowercase().contains(&filter);
                 name_match || desc_match || category_match || id_match
             })
@@ -736,14 +735,14 @@ fn render_all_features_sections(
         });
         
         debug!("Adding component {} to category: {}", component.id, category);
-        categories.entry(category).or_insert_with(Vec::new).push(component);
+        categories.entry(category).or_default().push(component);
     }
     
     debug!("Categories: {:?}", categories.keys().collect::<Vec<_>>());
     
     // Rest of the function remains the same...
     let mut included_expanded = use_signal(|| false);
-    let mut expanded_categories = use_signal(|| Vec::<String>::new());
+    let mut expanded_categories = use_signal(Vec::<String>::new);
     
     // Check for no results
     let no_results = categories.is_empty() && included_components.is_empty() && !filter.is_empty();
@@ -879,7 +878,7 @@ fn render_all_features_sections(
                                 // Toggle all button - has separate click handler
                                 {
                                     let components_clone = components.clone();
-                                    let mut enabled_features = enabled_features.clone();
+                                    let mut enabled_features = enabled_features;
                                     
                                     rsx! {
                                         button {

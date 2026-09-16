@@ -13,28 +13,18 @@ use std::path::PathBuf;
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use modal::ModalContext;
 use modal::Modal; 
-use std::sync::mpsc;
 use log::{debug, error, info, warn};
 use isahc::ReadResponseExt;
 
 use crate::{GithubBranch, build_http_client, GH_API, REPO, Config};
-use crate::{get_app_data, get_installed_packs, get_launcher, uninstall, InstallerProfile, Launcher, PackName};
+use crate::{get_app_data, get_launcher, uninstall, InstallerProfile, Launcher, PackName};
 use crate::Installation;
 use crate::installation;
-use crate::universal;
 use crate::CachedHttpClient;
-use crate::changelog::{Changelog as ChangelogData, HomePageStats, FooterButton, HomePageConfig};
-use crate::preset;
-use crate::launch_modpack;
-use crate::universal::ModComponent;
+use crate::changelog::Changelog as ChangelogData;
 use crate::universal::ManifestError;
-use crate::universal::ManifestErrorType;
 use crate::launcher::FeaturesTab;
 use crate::launcher::PerformanceTab;
-use crate::launcher::SettingsTab;
-use crate::installation::delete_installation;
-use crate::preset::find_preset_by_id;
-use crate::backup::BackupProgress;
 
 mod modal;
 
@@ -80,7 +70,7 @@ pub fn handle_play_click(uuid: String, error_signal: &Signal<Option<String>>) {
     let (error_tx, error_rx) = std::sync::mpsc::channel::<String>();
     
     // Clone error_signal before moving to thread
-    let mut error_signal_clone = error_signal.clone();
+    let mut error_signal_clone = *error_signal;
     
     // Launch the game using the proper launch function
     let uuid_clone = uuid.clone();
@@ -567,7 +557,7 @@ fn HomePage(
     
     // Check if this is the first time (no installations)
     let has_installations = !installations().is_empty();
-    let latest_installation = installations().first().cloned();
+    let _latest_installation = installations().first().cloned();
     
     rsx! {
         div { class: "home-container home-page",
@@ -844,9 +834,9 @@ pub fn SimplifiedInstallationWizard(props: InstallationCreationProps) -> Element
     });
     
     // Resource for universal manifest with better error handling
-    let manifest_error_clone = manifest_error.clone();
+    let manifest_error_clone = manifest_error;
     let universal_manifest = use_resource(move || {
-        let mut manifest_error = manifest_error_clone.clone();
+        let mut manifest_error = manifest_error_clone;
         async move {
             debug!("Loading universal manifest...");
             match crate::universal::load_universal_manifest(
@@ -901,7 +891,7 @@ pub fn SimplifiedInstallationWizard(props: InstallationCreationProps) -> Element
             );
 
             // CRITICAL FIX: Initialize with default-enabled features from universal manifest
-            let http_client = crate::CachedHttpClient::new();
+            let _http_client = crate::CachedHttpClient::new();
             let unwrapped_manifest_clone = unwrapped_manifest.clone();
             
             spawn(async move {
@@ -1137,10 +1127,10 @@ pub fn InstallationManagementPage(
     let mut active_tab = use_signal(|| "features");
 
     // Clone installation_id BEFORE moving it into use_memo
-    let installation_id_for_delete = installation_id.clone();
-    let installation_id_for_launch = installation_id.clone();
-    let installation_id_for_update = installation_id.clone();
-    let installation_id_for_clear = installation_id.clone();
+    let _installation_id_for_delete = installation_id.clone();
+    let _installation_id_for_launch = installation_id.clone();
+    let _installation_id_for_update = installation_id.clone();
+    let _installation_id_for_clear = installation_id.clone();
     let installation_id_for_memo = installation_id.clone();
 
     // Load the installation data
@@ -1153,9 +1143,9 @@ pub fn InstallationManagementPage(
     let mut installation_error = use_signal(|| Option::<String>::None);
     
     // Progress tracking signals
-    let mut installation_progress = use_signal(|| 0i64);
-    let mut installation_total = use_signal(|| 0i64);
-    let mut installation_status = use_signal(|| String::new());
+    let installation_progress = use_signal(|| 0i64);
+    let installation_total = use_signal(|| 0i64);
+    let installation_status = use_signal(String::new);
     
     // Handle installation not found
     if let Err(e) = &*installation_result.read() {
@@ -1178,14 +1168,14 @@ pub fn InstallationManagementPage(
     let installation = installation_result.read().as_ref().unwrap().clone();
     
     // Create the installation state signal
-    let mut installation_state = use_signal(|| installation.clone());
+    let installation_state = use_signal(|| installation.clone());
     
     // Clone needed values
     let installation_id_for_delete = installation.id.clone();
     let installation_id_for_launch = installation.id.clone();
     let installation_for_update = installation.clone();
-    let installation_for_preset_update = installation.clone();
-    let installation_for_features = installation.clone();
+    let _installation_for_preset_update = installation.clone();
+    let _installation_for_features = installation.clone();
     
     // State for modification tracking
     let mut has_changes = use_signal(|| false);
@@ -1195,23 +1185,23 @@ pub fn InstallationManagementPage(
     let selected_preset = use_signal(|| Option::<String>::None);
     
     // State for tracking modifications in different areas 
-    let mut features_modified = use_signal(|| false);
-    let mut performance_modified = use_signal(|| false);
+    let features_modified = use_signal(|| false);
+    let performance_modified = use_signal(|| false);
     
     // Filter text for feature search
-    let filter_text = use_signal(|| String::new());
+    let filter_text = use_signal(String::new);
 
     // Add this with other state declarations
     let mut show_update_warning = use_signal(|| false);
     
     // Preset update message signal
-    let mut preset_update_msg = use_signal(|| Option::<String>::None);
+    let _preset_update_msg = use_signal(|| Option::<String>::None);
 
     // Effect to detect changes
     use_effect({
-        let enabled_features_for_effect = enabled_features.clone();
+        let enabled_features_for_effect = enabled_features;
         let original_features = installation.enabled_features.clone();
-        let mut features_modified_copy = features_modified.clone();
+        let mut features_modified_copy = features_modified;
         
         move || {
             let features_changed = enabled_features_for_effect.read().clone() != original_features;
@@ -1233,20 +1223,20 @@ pub fn InstallationManagementPage(
 
 let mut proceed_with_update = {
     let installation_for_update_clone = installation_for_update_clone.clone();
-    let enabled_features = enabled_features.clone();
-    let memory_allocation = memory_allocation.clone();
-    let java_args = java_args.clone();
-    let mut is_installing = is_installing.clone();
-    let installation_error = installation_error.clone();
-    let mut installation_progress = installation_progress.clone();
-    let installation_total = installation_total.clone();
-    let mut installation_status = installation_status.clone();
-    let has_changes = has_changes.clone();
-    let features_modified = features_modified.clone();
-    let performance_modified = performance_modified.clone();
-    let installations = installations.clone();
-    let installation_state = installation_state.clone();
-    let selected_preset = selected_preset.clone();
+    let enabled_features = enabled_features;
+    let memory_allocation = memory_allocation;
+    let java_args = java_args;
+    let mut is_installing = is_installing;
+    let installation_error = installation_error;
+    let mut installation_progress = installation_progress;
+    let installation_total = installation_total;
+    let mut installation_status = installation_status;
+    let has_changes = has_changes;
+    let features_modified = features_modified;
+    let performance_modified = performance_modified;
+    let installations = installations;
+    let installation_state = installation_state;
+    let selected_preset = selected_preset;
     let installation_id_for_clear = installation_id.clone(); // Add this for session clearing
     
     move || {
@@ -1273,16 +1263,16 @@ let mut proceed_with_update = {
         installation_clone.modified = true;
         
         let http_client = crate::CachedHttpClient::new();
-        let mut installation_error_clone = installation_error.clone();
-        let mut progress = installation_progress.clone();
-        let mut total = installation_total.clone();
-        let mut status = installation_status.clone();
-        let mut is_installing_clone = is_installing.clone();
-        let mut has_changes_clone = has_changes.clone();
-        let mut features_modified_clone = features_modified.clone();
-        let mut performance_modified_clone = performance_modified.clone();
-        let mut installations = installations.clone();
-        let mut installation_state = installation_state.clone();
+        let mut installation_error_clone = installation_error;
+        let mut progress = installation_progress;
+        let mut total = installation_total;
+        let mut status = installation_status;
+        let mut is_installing_clone = is_installing;
+        let mut has_changes_clone = has_changes;
+        let mut features_modified_clone = features_modified;
+        let mut performance_modified_clone = performance_modified;
+        let mut installations = installations;
+        let mut installation_state = installation_state;
         let installation_id = installation_clone.id.clone();
         let installation_id_for_clear_async = installation_id_for_clear.clone(); // Clone for async
 
@@ -1515,8 +1505,8 @@ let mut proceed_with_update = {
     // Handle update function
     let handle_update = {
         let mut proceed_with_update = proceed_with_update.clone();
-        let installation_state = installation_state.clone();
-        let mut show_update_warning = show_update_warning.clone();
+        let installation_state = installation_state;
+        let mut show_update_warning = show_update_warning;
         
         move |_| {
             // Check if this is an update (not first install)
@@ -1557,11 +1547,11 @@ let (action_button_label, button_class, button_disabled) = {
 };  
     // Handle launch
     let handle_launch = {
-        let mut installation_error_clone = installation_error.clone();
+        let installation_error_clone = installation_error;
         let installation_id = installation_id_for_launch.clone();
         
         move |_| {
-            let mut installation_error_clone = installation_error_clone.clone();
+            let mut installation_error_clone = installation_error_clone;
             let installation_id = installation_id.clone();
             
             // Create a channel to communicate back to the main thread
@@ -1994,7 +1984,7 @@ fn ProgressView(
     // Auto-close when actually complete
     if is_complete {
         use_effect({
-            let on_complete = on_complete.clone();
+            let on_complete = on_complete;
             move || {
                 debug!("Installation complete, scheduling auto-close");
                 spawn(async move {
@@ -2035,14 +2025,12 @@ fn ProgressView(
         "prepare"
     };
     
-    let steps = vec![
-        ("prepare", "Prepare"),
+    let steps = [("prepare", "Prepare"),
         ("download", "Download"),
         ("extract", "Extract"),
         ("configure", "Configure"),
         ("finish", "Finish"),
-        ("complete", "Complete"),
-    ];
+        ("complete", "Complete")];
     
     // Find current step index
     let active_step_index = steps.iter().position(|(id, _)| id == &current_step).unwrap_or(0);
@@ -2062,7 +2050,7 @@ fn ProgressView(
             div { class: "progress-content",
                 // Step indicators
                 div { class: "progress-steps",
-                    for (index, (step_id, step_label)) in steps.iter().enumerate() {
+                    for (index, (_step_id, step_label)) in steps.iter().enumerate() {
                         {
                             let step_class = if index < active_step_index {
                                 "progress-step completed"
@@ -2300,7 +2288,7 @@ fn Settings(mut props: SettingsProps) -> Element {
     let mut multimc = None;
     let mut prism = None;
     let mut custom = None;
-    let launcher = get_launcher(&props.config.read().launcher).unwrap();
+    let _launcher = get_launcher(&props.config.read().launcher).unwrap();
     
     match &props.config.read().launcher[..] {
         "vanilla" => vanilla = Some("true"),
@@ -2641,7 +2629,7 @@ async fn init_branch(source: String, branch: String, launcher: Launcher, mut pag
 
     // Check if this profile already exists in the tab group
     let profile_exists = pages.read().get(&tab_group)
-        .map_or(false, |tab_info| tab_info.modpacks.iter()
+        .is_some_and(|tab_info| tab_info.modpacks.iter()
             .any(|p| p.modpack_branch == profile.modpack_branch && p.modpack_source == profile.modpack_source));
             
     if profile_exists {
@@ -2741,7 +2729,7 @@ fn Version(mut props: VersionProps) -> Element {
     let features = use_signal(|| installer_profile.manifest.features.clone());
     
     // Clone the UUID right away to avoid ownership issues
-    let uuid = installer_profile.manifest.uuid.clone();
+    let _uuid = installer_profile.manifest.uuid.clone();
     
     // Add debugging to watch for signal changes
     use_effect(move || {
@@ -2770,11 +2758,7 @@ fn Version(mut props: VersionProps) -> Element {
     
     // Clone local_manifest to prevent ownership issues
     let mut local_features = use_signal(|| {
-        if let Some(ref manifest) = installer_profile.local_manifest {
-            Some(manifest.enabled_features.clone())
-        } else {
-            None
-        }
+        installer_profile.local_manifest.as_ref().map(|manifest| manifest.enabled_features.clone())
     });
     
     // Calculate how many features to show in first row - default to 3
@@ -3021,7 +3005,7 @@ fn Version(mut props: VersionProps) -> Element {
     };
 
     // Button label based on state
-    let button_label = if !*installed.read() {
+    let _button_label = if !*installed.read() {
         debug!("Button state: Install");
         "Install"
     } else if *update_available.read() {
@@ -3249,7 +3233,7 @@ fn AppHeader(
                         {
                             let id = installation.id.clone();
                             let name = installation.name.clone();
-                            let is_active = current_installation_id.read().as_ref().map_or(false, |current_id| current_id == &id);
+                            let is_active = current_installation_id.read().as_ref() == Some(&id);
                             
                             rsx! {
                                 button {
@@ -3271,7 +3255,7 @@ fn AppHeader(
                                     {
                                         let id = installation.id.clone();
                                         let name = installation.name.clone();
-                                        let is_active = current_installation_id.read().as_ref().map_or(false, |current_id| current_id == &id);
+                                        let is_active = current_installation_id.read().as_ref() == Some(&id);
                                         
                                         rsx! {
                                             button {
@@ -3343,22 +3327,19 @@ pub fn app() -> Element {
         };
 
     // Load universal manifest with error handling
-    let has_launcher_copy = has_launcher;
+    let _has_launcher_copy = has_launcher;
 
-    let config_clone = config.clone();
-    let manifest_error_clone = manifest_error.clone();
+    let config_clone = config;
+    let manifest_error_clone = manifest_error;
     let universal_manifest = use_resource(move || {
-        let config = config_clone.clone();
-        let mut manifest_error = manifest_error_clone.clone();
+        let config = config_clone;
+        let mut manifest_error = manifest_error_clone;
         async move {
             // Clone the launcher string
             let launcher_str = config.read().launcher.clone();
             
             // Now use the string value with get_launcher
-            let launcher = match get_launcher(&launcher_str) {
-                Ok(l) => Some(l),
-                Err(_) => None,
-            };
+            let launcher = get_launcher(&launcher_str).ok();
             
             let launcher_available = launcher.is_some();
             if !launcher_available {
@@ -3411,7 +3392,7 @@ use_effect(move || {
 });
     
     use_effect(move || {
-    let installations = installations.clone();
+    let installations = installations;
     let http_client = CachedHttpClient::new();
     
     spawn(async move {
@@ -3483,14 +3464,14 @@ let complete_css = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
     // NEW: Determine if we should show the header and what type
     let show_header = !config.read().first_launch.unwrap_or(true) && has_launcher && !settings();
     let is_on_installation_page = current_installation_id.read().is_some() && 
-                                 current_installation_id.read().as_ref().map_or(false, |id| id != "new");
+                                 current_installation_id.read().as_ref().is_some_and(|id| id != "new");
 
     // Create header component based on current page
     let header_component = if show_header {
         Some(rsx! {
             AppHeader {
-                installations: installations.clone(),
-                current_installation_id: current_installation_id.clone(),
+                installations: installations,
+                current_installation_id: current_installation_id,
                 show_installation_tabs: false, // NEW: Never show installation tabs in main header
                 on_select_installation: move |id: String| {
                     if id == "new" {
@@ -3519,7 +3500,7 @@ let complete_css = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 config,
                 settings,
                 config_path: props.config_path.clone(),
-                error: error_signal.clone(),
+                error: error_signal,
                 b64_id: URL_SAFE_NO_PAD.encode(props.modpack_source)
             }
         }
@@ -3529,7 +3510,7 @@ let complete_css = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
             Launcher {
                 config,
                 config_path: props.config_path.clone(),
-                error: error_signal.clone(),
+                error: error_signal,
                 b64_id: URL_SAFE_NO_PAD.encode(props.modpack_source)
             }
         }
@@ -3549,12 +3530,12 @@ let complete_css = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
             rsx! {
                 HomePage {
                     installations,
-                    error_signal: error_signal.clone(),
+                    error_signal: error_signal,
                     changelog: changelog_signal,
-                    current_installation_id: current_installation_id.clone(),
+                    current_installation_id: current_installation_id,
                 }
             }
-        } else if current_installation_id.read().as_ref().map_or(false, |id| id == "new") {
+        } else if current_installation_id.read().as_ref().is_some_and(|id| id == "new") {
             // New installation flow
             rsx! {
                 SimplifiedInstallationWizard {
@@ -3566,7 +3547,7 @@ let complete_css = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
                             list.insert(0, new_installation.clone());
                         });
                         current_installation_id.set(Some(new_installation.id));
-                        ()
+                        
                     }
                 }
             }
@@ -3582,7 +3563,7 @@ let complete_css = format!("{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 InstallationManagementPage {
                     installation_id: id,
                     onback: back_handler,
-                    installations: installations.clone()
+                    installations: installations
                 }
             }
         }

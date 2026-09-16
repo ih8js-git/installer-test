@@ -1,22 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use log::{debug, error, info, warn};
 use chrono::{DateTime, Utc};
-use std::collections::HashMap;
-use uuid::Uuid;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use crate::{CachedHttpClient, launcher};
+use crate::CachedHttpClient;
 use crate::preset::Preset;
-use crate::Launcher;
 // FIXED: Combine all backup imports into one line
 use crate::backup::{
     BackupProgress, BackupConfig, BackupType, BackupMetadata, BackupItem,
     FileSystemItem, count_files_recursive, calculate_directory_size, 
-    create_zip_archive, format_bytes
+    create_zip_archive
 };
 
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
@@ -266,21 +262,19 @@ impl Installation {
         
         match std::fs::read_dir(&backups_dir) {
             Ok(entries) => {
-                for entry in entries {
-                    if let Ok(entry) = entry {
-                        let path = entry.path();
-                        if path.is_dir() {
-                            let metadata_path = path.join("metadata.json");
-                            if metadata_path.exists() {
-                                match std::fs::read_to_string(&metadata_path) {
-                                    Ok(content) => {
-                                        match serde_json::from_str::<BackupMetadata>(&content) {
-                                            Ok(metadata) => backups.push(metadata),
-                                            Err(e) => debug!("Failed to parse backup metadata: {}", e),
-                                        }
-                                    },
-                                    Err(e) => debug!("Failed to read backup metadata: {}", e),
-                                }
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        let metadata_path = path.join("metadata.json");
+                        if metadata_path.exists() {
+                            match std::fs::read_to_string(&metadata_path) {
+                                Ok(content) => {
+                                    match serde_json::from_str::<BackupMetadata>(&content) {
+                                        Ok(metadata) => backups.push(metadata),
+                                        Err(e) => debug!("Failed to parse backup metadata: {}", e),
+                                    }
+                                },
+                                Err(e) => debug!("Failed to read backup metadata: {}", e),
                             }
                         }
                     }
@@ -891,7 +885,7 @@ let metadata = BackupMetadata {
             "manifest.json",          // Installation manifest
         ];
         
-        always_skip.iter().any(|pattern| name == *pattern) ||
+        always_skip.contains(&name) ||
         name.starts_with("tmp_") || 
         name.ends_with(".tmp") ||
         name.ends_with(".lock")
@@ -1188,7 +1182,7 @@ let metadata = BackupMetadata {
         }
         
         // Sort by creation date, oldest first
-        backups.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        backups.sort_by_key(|a| a.created_at);
         
         // Remove oldest backups
         let to_remove = backups.len() - max_backups;
@@ -1480,7 +1474,7 @@ let metadata = BackupMetadata {
         
         // Store previous state for comparison
         let previous_features = self.enabled_features.clone();
-        let previous_preset = self.base_preset_id.clone();
+        let _previous_preset = self.base_preset_id.clone();
         
         // Apply the preset
         self.base_preset_id = Some(preset.id.clone());
@@ -1738,48 +1732,43 @@ let metadata = BackupMetadata {
         
         // Add all default-enabled components AND ensure all their IDs are in enabled_features
         for component in &universal_manifest.mods {
-            if component.default_enabled || component.id == "default" {
-                if !features.contains(&component.id) {
+            if (component.default_enabled || component.id == "default")
+                && !features.contains(&component.id) {
                     features.push(component.id.clone());
                     debug!("Added default mod: {}", component.id);
                 }
-            }
         }
         
         for component in &universal_manifest.shaderpacks {
-            if component.default_enabled || component.id == "default" {
-                if !features.contains(&component.id) {
+            if (component.default_enabled || component.id == "default")
+                && !features.contains(&component.id) {
                     features.push(component.id.clone());
                     debug!("Added default shaderpack: {}", component.id);
                 }
-            }
         }
         
         for component in &universal_manifest.resourcepacks {
-            if component.default_enabled || component.id == "default" {
-                if !features.contains(&component.id) {
+            if (component.default_enabled || component.id == "default")
+                && !features.contains(&component.id) {
                     features.push(component.id.clone());
                     debug!("Added default resourcepack: {}", component.id);
                 }
-            }
         }
         
         for include in &universal_manifest.include {
-            if (include.default_enabled || include.id == "default") && !include.id.is_empty() {
-                if !features.contains(&include.id) {
+            if (include.default_enabled || include.id == "default") && !include.id.is_empty()
+                && !features.contains(&include.id) {
                     features.push(include.id.clone());
                     debug!("Added default include: {}", include.id);
                 }
-            }
         }
         
         for remote in &universal_manifest.remote_include {
-            if remote.default_enabled || remote.id == "default" {
-                if !features.contains(&remote.id) {
+            if (remote.default_enabled || remote.id == "default")
+                && !features.contains(&remote.id) {
                     features.push(remote.id.clone());
                     debug!("Added default remote include: {}", remote.id);
                 }
-            }
         }
         
         self.enabled_features = features;
@@ -2252,7 +2241,7 @@ pub fn delete_installation(id: &str) -> Result<(), String> {
     index.installations.retain(|i| i != id);
     
     // If this was the active installation, clear it
-    if index.active_installation.as_ref().map_or(false, |active| active == id) {
+    if index.active_installation.as_ref().is_some_and(|active| active == id) {
         index.active_installation = None;
     }
     

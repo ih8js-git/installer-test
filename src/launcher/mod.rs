@@ -4,7 +4,7 @@ pub mod config;
 mod process;
 
 // Correct imports
-pub use config::{update_jvm_args, get_jvm_args, update_memory_allocation, extract_memory_from_args, update_launcher_profile_memory};
+pub use config::{update_jvm_args, get_jvm_args};
 pub use process::launch_modpack;
 
 // Component modules - features_tab remains public
@@ -14,10 +14,9 @@ mod performance_tab;
 mod settings_tab;
 
 mod launcher_finder;
-pub use launcher_finder::get_launcher_path;
 
 // Updated exports
-pub use features_tab::{FeaturesTab, clear_session_state};
+pub use features_tab::FeaturesTab;
 pub use performance_tab::PerformanceTab;
 pub use settings_tab::SettingsTab;
 

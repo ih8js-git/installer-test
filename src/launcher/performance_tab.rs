@@ -1,6 +1,4 @@
 use dioxus::prelude::*;
-use tokio::time::sleep;
-use std::time::Duration;
 use log::{debug, error};
 
 // Helper function to get system memory
@@ -80,7 +78,7 @@ pub fn PerformanceTab(
     let mut detected_memory = use_signal(|| None::<i32>);
     
     // State for showing success message
-    let mut show_apply_success = use_signal(|| false);
+    let show_apply_success = use_signal(|| false);
     
     // State for recommended memory
     let mut recommended_memory = use_signal(|| 4096); // Default 4GB recommendation
@@ -105,8 +103,8 @@ pub fn PerformanceTab(
     
     // Update max memory when system memory is available
     use_effect({
-        let detected_memory = detected_memory.clone();
-        let mut max_memory = max_memory.clone();
+        let detected_memory = detected_memory;
+        let mut max_memory = max_memory;
         
         move || {
             if let Some(mem) = *detected_memory.read() {
@@ -121,12 +119,12 @@ pub fn PerformanceTab(
     let step = 512; // 512MB steps
     
     // Store original value for comparison to detect changes
-    let mut original_memory = use_signal(|| *memory_allocation.read());
+    let original_memory = use_signal(|| *memory_allocation.read());
     
     // Update original memory when component first loads
     use_effect({
-        let memory_allocation = memory_allocation.clone();
-        let mut original_memory = original_memory.clone();
+        let memory_allocation = memory_allocation;
+        let mut original_memory = original_memory;
         
         move || {
             // Set initial value only once
@@ -147,9 +145,9 @@ pub fn PerformanceTab(
     // Apply memory function
 let apply_memory = {
     let installation_id = installation_id.clone();
-    let memory_allocation = memory_allocation.clone();
-    let mut show_apply_success = show_apply_success.clone();
-    let mut original_memory = original_memory.clone();
+    let memory_allocation = memory_allocation;
+    let mut show_apply_success = show_apply_success;
+    let mut original_memory = original_memory;
     
     move |_| {
         let current_memory = *memory_allocation.read();
@@ -225,10 +223,8 @@ let apply_memory = {
     };
     
     // Create memory markers
-    let markers = vec![
-    ("1 GB", 1024),
-    ("8 GB", 8192),
-    ];
+    let _markers = [("1 GB", 1024),
+    ("8 GB", 8192)];
 
     
     

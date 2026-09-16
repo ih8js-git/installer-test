@@ -1,5 +1,5 @@
 use std::process::Command;
-use log::{debug, error, warn, info};
+use log::{debug, error, info};
 use std::fmt;
 use std::path::PathBuf;
 

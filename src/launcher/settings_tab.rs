@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::installation::{Installation, delete_installation};
+use crate::installation::Installation;
 use crate::backup::{BackupConfig, BackupType, BackupMetadata, BackupProgress};
 use log::{debug, error, warn}; // Only import from log, remove the duplicate
 
@@ -18,8 +18,8 @@ pub fn SettingsTab(
             GeneralSettingsSection {
                 installation: installation.clone(),
                 installation_id: installation_id.clone(),
-                ondelete: ondelete.clone(),
-                onupdate: onupdate.clone()
+                ondelete: ondelete,
+                onupdate: onupdate
             }
         }
     }
@@ -39,7 +39,7 @@ fn GeneralSettingsSection(
     let installation_id_for_cache = installation_id.clone();
     
     // Clone values needed in the UI (outside of closures)
-    let path_for_ui = installation.installation_path.clone();
+    let _path_for_ui = installation.installation_path.clone();
     let minecraft_version = installation.minecraft_version.clone();
     let loader_type = installation.loader_type.clone();
     let loader_version = installation.loader_version.clone();
@@ -63,12 +63,12 @@ fn GeneralSettingsSection(
     
     // Backup-related state
     let mut show_backup_section = use_signal(|| false);
-    let mut backup_config = use_signal(|| BackupConfig::default());
-    let mut backup_description = use_signal(|| String::new());
-    let mut available_backups = use_signal(|| Vec::<BackupMetadata>::new());
+    let mut backup_config = use_signal(BackupConfig::default);
+    let mut backup_description = use_signal(String::new);
+    let available_backups = use_signal(Vec::<BackupMetadata>::new);
     let mut selected_backup = use_signal(|| Option::<String>::None);
-    let mut is_creating_backup = use_signal(|| false);
-    let mut backup_progress = use_signal(|| None::<BackupProgress>);
+    let is_creating_backup = use_signal(|| false);
+    let backup_progress = use_signal(|| None::<BackupProgress>);
     let mut backup_success = use_signal(|| Option::<String>::None);
     let mut show_backup_config = use_signal(|| false);
     let mut show_restore_confirm = use_signal(|| false);
@@ -76,8 +76,8 @@ fn GeneralSettingsSection(
     // Load available backups when backup section is shown
     use_effect({
         let installation_clone = installation.clone();
-        let mut available_backups = available_backups.clone();
-        let show_backup_section = show_backup_section.clone();
+        let mut available_backups = available_backups;
+        let show_backup_section = show_backup_section;
         
         move || {
             if *show_backup_section.read() {
@@ -97,7 +97,7 @@ fn GeneralSettingsSection(
     // Open folder function
     let installation_path_for_folder = installation.installation_path.clone();
     let open_folder = move |_| {
-        let mut path = installation_path_for_folder.clone();
+        let path = installation_path_for_folder.clone();
         
         debug!("Opening installation folder: {:?}", path);
         
@@ -168,9 +168,9 @@ fn GeneralSettingsSection(
     // Handle delete
     let handle_delete = move |_| {
         let id_to_delete = installation_id_for_delete.clone();
-        let delete_handler = ondelete.clone();
-        let mut operation_error_clone = operation_error.clone();
-        let mut is_operating_clone = is_operating.clone();
+        let delete_handler = ondelete;
+        let mut operation_error_clone = operation_error;
+        let mut is_operating_clone = is_operating;
         
         is_operating_clone.set(true);
         
@@ -192,13 +192,13 @@ fn GeneralSettingsSection(
     // Backup functions
     let create_backup = {
         let installation_clone = installation.clone();
-        let mut is_creating_backup = is_creating_backup.clone();
-        let mut backup_progress = backup_progress.clone();
-        let mut operation_error = operation_error.clone();
-        let mut backup_success = backup_success.clone();
-        let backup_config = backup_config.clone();
-        let backup_description = backup_description.clone();
-        let mut available_backups = available_backups.clone();
+        let mut is_creating_backup = is_creating_backup;
+        let mut backup_progress = backup_progress;
+        let mut operation_error = operation_error;
+        let mut backup_success = backup_success;
+        let backup_config = backup_config;
+        let backup_description = backup_description;
+        let mut available_backups = available_backups;
         
         move |_| {
             let installation = installation_clone.clone();
@@ -222,7 +222,7 @@ fn GeneralSettingsSection(
                     let _ = progress_tx.send(progress);
                 };
                 
-                let mut backup_progress_clone = backup_progress.clone();
+                let mut backup_progress_clone = backup_progress;
                 spawn(async move {
                     while let Some(progress) = progress_rx.recv().await {
                         backup_progress_clone.set(Some(progress));
@@ -446,7 +446,7 @@ rsx! {
                                 
                                 rsx! {
                                     div { class: "backups-list-mini",
-                                        {available_backups.read().iter().take(display_count).enumerate().map(|(index, backup)| {
+                                        {available_backups.read().iter().take(display_count).map(|backup| {
                                             // Clone all values we need before moving into closures
                                             let backup_id = backup.id.clone();
                                             let backup_id_for_onclick = backup_id.clone();
@@ -539,8 +539,8 @@ rsx! {
                                                                         // Use pre-cloned values
                                                                         let backup_id_for_async = backup_id_for_delete.clone();
                                                                         let installation_for_async = installation_clone.clone();
-                                                                        let mut available_backups_clone = available_backups.clone();
-                                                                        let mut operation_error_clone = operation_error.clone();
+                                                                        let mut available_backups_clone = available_backups;
+                                                                        let mut operation_error_clone = operation_error;
                                                                         
                                                                         spawn(async move {
                                                                             match installation_for_async.delete_backup(&backup_id_for_async).await {
@@ -607,8 +607,8 @@ rsx! {
                                                             class: "bulk-action-button cleanup-old",
                                                             onclick: move |_| {
                                                                 let installation_clone = installation_for_bulk.clone();
-                                                                let mut available_backups_clone = available_backups.clone();
-                                                                let mut operation_error_clone = operation_error.clone();
+                                                                let mut available_backups_clone = available_backups;
+                                                                let mut operation_error_clone = operation_error;
                                                                 
                                                                 spawn(async move {
                                                                     // Clean up backups older than 30 days, keeping at least 3
@@ -702,11 +702,11 @@ rsx! {
                         is_operating.set(true);
                         
                         let installation_path_for_cache = installation.installation_path.clone();
-                        let mut operation_error_clone = operation_error.clone();
-                        let mut is_operating_clone = is_operating.clone();
+                        let mut operation_error_clone = operation_error;
+                        let mut is_operating_clone = is_operating;
                         let installation_clone_for_async = installation.clone();
-                        let onupdate_clone = onupdate.clone();
-                        let installation_id_for_cache_async = installation_id_for_cache.clone();
+                        let onupdate_clone = onupdate;
+                        let _installation_id_for_cache_async = installation_id_for_cache.clone();
                         
                         spawn(async move {
                             // Load the universal manifest to check can_reset flags
@@ -1043,7 +1043,7 @@ rsx! {
                     backups: available_backups.read().clone(),
                     installation: installation.clone(),
                     onclose: move |_| show_restore_confirm.set(false),
-                    onupdate: onupdate.clone()
+                    onupdate: onupdate
                 }
             })
         } else {
@@ -1062,20 +1062,18 @@ fn BackupConfigDialog(
     onupdate: EventHandler<crate::backup::BackupConfig>,
 ) -> Element {
     let mut local_config = use_signal(|| config.read().clone());
-    let mut backup_mode = use_signal(|| "custom".to_string()); // Start with custom mode
+    let backup_mode = use_signal(|| "custom".to_string()); // Start with custom mode
     
     // FIXED: Use the same important_folders array as SimplifiedBackupDialog
-    let important_folders = vec![
-        "wynntils".to_string(),
+    let important_folders = ["wynntils".to_string(),
         "config".to_string(), 
         "mods".to_string(),
         ".bobby".to_string(),
-        "Distant_Horizons_server_data".to_string(),
-    ];
+        "Distant_Horizons_server_data".to_string()];
     
     // Initialize with pre-selected critical folders
     use_effect({
-        let mut local_config = local_config.clone();
+        let mut local_config = local_config;
         
         move || {
             let pre_selected = vec![
@@ -1119,8 +1117,8 @@ fn BackupConfigDialog(
                                     value: "complete",
                                     checked: backup_mode.read().as_str() == "complete",
                                     onchange: {
-                                        let mut local_config = local_config.clone();
-                                        let mut backup_mode = backup_mode.clone();
+                                        let mut local_config = local_config;
+                                        let mut backup_mode = backup_mode;
                                         
                                         move |_| {
                                             backup_mode.set("complete".to_string());
@@ -1150,8 +1148,8 @@ fn BackupConfigDialog(
                                     value: "custom",
                                     checked: backup_mode.read().as_str() == "custom",
                                     onchange: {
-                                        let mut local_config = local_config.clone();
-                                        let mut backup_mode = backup_mode.clone();
+                                        let mut local_config = local_config;
+                                        let mut backup_mode = backup_mode;
                                         
                                         move |_| {
                                             backup_mode.set("custom".to_string());
@@ -1216,7 +1214,7 @@ fn BackupConfigDialog(
                                                         checked: is_selected,
                                                         onchange: {
                                                             let folder_name = folder_name.clone();
-                                                            let mut local_config = local_config.clone();
+                                                            let mut local_config = local_config;
                                                             
                                                             move |evt| {
                                                                 let checked = evt.value() == "true";
@@ -1413,16 +1411,16 @@ fn RestoreConfirmDialog(
     onupdate: EventHandler<Installation>,
 ) -> Element {
     let backup = backups.iter().find(|b| b.id == backup_id);
-    let mut is_restoring = use_signal(|| false);
-    let mut restore_error = use_signal(|| Option::<String>::None);
+    let is_restoring = use_signal(|| false);
+    let restore_error = use_signal(|| Option::<String>::None);
     
     let handle_restore = {
         let installation_clone = installation.clone();
         let backup_id_clone = backup_id.clone();
-        let mut is_restoring = is_restoring.clone();
-        let mut restore_error = restore_error.clone();
-        let onupdate = onupdate.clone();
-        let onclose = onclose.clone();
+        let mut is_restoring = is_restoring;
+        let mut restore_error = restore_error;
+        let onupdate = onupdate;
+        let onclose = onclose;
         
         move |_| {
             let mut installation = installation_clone.clone();

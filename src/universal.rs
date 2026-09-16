@@ -8,7 +8,6 @@ use isahc::AsyncReadResponseExt;
 use crate::CachedHttpClient;
 use crate::Author;
 
-use crate::preset::{Preset, PresetsContainer};
 
 // Structure for a mod/component in the universal manifest
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -250,7 +249,7 @@ impl UniversalManifest {
                 source: "remote_include".to_string(),
                 location: remote.location.clone(),
                 version: remote.version.clone(),
-                path: remote.path.as_ref().map(|p| PathBuf::from(p)),
+                path: remote.path.as_ref().map(PathBuf::from),
                 optional: remote.optional,
                 default_enabled: remote.default_enabled,
                 authors: remote.authors.clone(),

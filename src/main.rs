@@ -11,7 +11,6 @@ use dioxus::desktop::tao::window::Icon;
 use dioxus::prelude::LaunchBuilder;
 use dioxus::desktop::{Config as DioxusConfig, LogicalSize, WindowBuilder};
 use futures::StreamExt;
-use image::ImageReader;
 use image::{DynamicImage, ImageFormat};
 use isahc::config::RedirectPolicy;
 use isahc::http::{HeaderMap, HeaderValue, StatusCode};
@@ -26,7 +25,6 @@ use simplelog::{
     ColorChoice, CombinedLogger, Config as LogConfig, LevelFilter, TermLogger, TerminalMode,
     WriteLogger,
 };
-use std::sync::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::fs::File;
@@ -266,6 +264,12 @@ impl Clone for CachedResponse {
 #[derive(Debug, Clone)]
 pub struct CachedHttpClient {
     pub http_client: HttpClient,
+}
+
+impl Default for CachedHttpClient {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CachedHttpClient {
@@ -865,7 +869,7 @@ fn get_filename(headers: &HeaderMap<HeaderValue>, url: &str) -> Result<String, D
                 None => Err(DownloadError::MissingFilename(url.to_string())),
             } {
                 Ok(v) => v[1].to_string(),
-                Err(e) => match url.split('/').last() {
+                Err(e) => match url.split('/').next_back() {
                     Some(v) => v.to_string(),
                     None => {
                         return Err(e);
@@ -876,14 +880,14 @@ fn get_filename(headers: &HeaderMap<HeaderValue>, url: &str) -> Result<String, D
         } else {
             url
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap() // this should be impossible to error because all urls will have "/"s in them and if they dont it gets caught earlier
                 .to_string()
         }
     } else {
         url
             .split('/')
-            .last()
+            .next_back()
             .unwrap() // this should be impossible to error because all urls will have "/"s in them and if they dont it gets caught earlier
             .to_string()
     };
@@ -896,9 +900,9 @@ async fn download_loader_json(
     root: &Path,
     http_client: &CachedHttpClient,
 ) -> PathBuf {
-    let loader_path = root.join(Path::new(&format!("versions/{}", &loader_name)));
+    let loader_path = root.join(Path::new(&format!("versions/{}", loader_name)));
     if loader_path
-        .join(Path::new(&format!("{}.json", &loader_name)))
+        .join(Path::new(&format!("{}.json", loader_name)))
         .exists()
     {
         return PathBuf::new();
@@ -912,12 +916,12 @@ async fn download_loader_json(
         .unwrap();
     fs::create_dir_all(&loader_path).expect("Failed to create loader directory");
     fs::write(
-        loader_path.join(Path::new(&format!("{}.json", &loader_name))),
+        loader_path.join(Path::new(&format!("{}.json", loader_name))),
         resp,
     )
     .expect("Failed to write loader json");
     fs::write(
-        loader_path.join(Path::new(&format!("{}.jar", &loader_name))),
+        loader_path.join(Path::new(&format!("{}.jar", loader_name))),
         "",
     )
     .expect("Failed to write loader dummy jar");
@@ -1248,11 +1252,11 @@ fn create_launcher_profile(
                 lastVersionId: match &manifest.loader.r#type[..] {
                     "fabric" => format!(
                         "fabric-loader-{}-{}",
-                        &manifest.loader.version, &manifest.loader.minecraft_version
+                        manifest.loader.version, manifest.loader.minecraft_version
                     ),
                     "quilt" => format!(
                         "quilt-loader-{}-{}",
-                        &manifest.loader.version, &manifest.loader.minecraft_version
+                        manifest.loader.version, manifest.loader.minecraft_version
                     ),
                     _ => panic!("Invalid loader"),
                 },
@@ -1612,22 +1616,22 @@ async fn download_helper<T: Downloadable + Debug, F: FnMut() + Clone>(
             ))
         } else {
             let item = validate_item_path!(item, modpack_root);
-            let path;
             
-            if should_ignore_update && item.get_path().is_some() {
+            
+            let path = if should_ignore_update && item.get_path().is_some() {
                 debug!("Ignoring update for: '{}' (ignore_update=true)", item.get_name());
-                path = item.get_path().to_owned();
+                item.get_path().to_owned()
             } else if !should_include && item.get_path().is_some() {
                 debug!("Removing disabled item: '{}' (not in enabled_features)", item.get_name());
                 let _ = fs::remove_file(item.get_path().as_ref().unwrap());
-                path = None;
+                None
             } else if !should_include {
                 debug!("Skipping disabled item: '{}' (not in enabled_features)", item.get_name());
-                path = None;
+                None
             } else {
                 debug!("Keeping existing item: '{}' (enabled)", item.get_name());
-                path = item.get_path().to_owned();
-            }
+                item.get_path().to_owned()
+            };
             
             Ok(T::new(
                 item.get_name().to_owned(),
@@ -1763,7 +1767,7 @@ fn resolve_dependencies(
 
 // In src/main.rs - Update the install function's feature resolution section
 
-async fn install<F: FnMut() + Clone>(installer_profile: &InstallerProfile, mut progress_callback: F) -> Result<Vec<FailedItem>, String> {
+async fn install<F: FnMut() + Clone>(installer_profile: &InstallerProfile, progress_callback: F) -> Result<Vec<FailedItem>, String> {
     info!("Installing modpack");
     
     // Get the universal manifest to properly determine what should be installed
@@ -1899,9 +1903,9 @@ async fn install<F: FnMut() + Clone>(installer_profile: &InstallerProfile, mut p
     // Slow downloads (remote includes): 15 points each
     // Overhead tasks: 2 points each
     
-    let mod_points = download_counts.0 * 1;
-    let shader_points = download_counts.1 * 1;
-    let resource_points = download_counts.2 * 1;
+    let mod_points = download_counts.0;
+    let shader_points = download_counts.1;
+    let resource_points = download_counts.2;
     let include_points = download_counts.3 * 5;
     let remote_include_points = download_counts.4 * 15;
     let overhead_points = 4 * 2; // 4 overhead tasks * 2 points each
@@ -1986,9 +1990,9 @@ async fn install<F: FnMut() + Clone>(installer_profile: &InstallerProfile, mut p
     };
     
     // Different callbacks for different operation types
-    let mut mod_callback = create_weighted_callback(1);      // 1 point per mod
-    let mut shader_callback = create_weighted_callback(1);   // 1 point per shader
-    let mut resource_callback = create_weighted_callback(1); // 1 point per resource
+    let mod_callback = create_weighted_callback(1);      // 1 point per mod
+    let shader_callback = create_weighted_callback(1);   // 1 point per shader
+    let resource_callback = create_weighted_callback(1); // 1 point per resource
     let mut include_callback = create_weighted_callback(5);  // 5 points per include
     let mut remote_callback = create_weighted_callback(15);  // 15 points per remote include
     let mut overhead_callback = create_weighted_callback(2); // 2 points per overhead task
@@ -2656,7 +2660,7 @@ fn main() {
                 warn!("Disabled hardware acceleration as a workaround for NVIDIA driver issues")
             }
     }
-    let icon = image::load_from_memory(include_bytes!("assets/icon.png")).unwrap();
+    let _icon = image::load_from_memory(include_bytes!("assets/icon.png")).unwrap();
     let branches: Vec<GithubBranch> = serde_json::from_str(
         build_http_client()
             .get(GH_API.to_owned() + REPO + "branches")

@@ -304,8 +304,8 @@ pub fn extract_memory_from_args(args: &str) -> Option<i32> {
     let parts: Vec<&str> = args.split_whitespace().collect();
     
     for part in parts {
-        if part.starts_with("-Xmx") {
-            let mem_str = &part[4..]; // Remove "-Xmx" prefix
+        if let Some(mem_str) = part.strip_prefix("-Xmx") {
+            // Remove "-Xmx" prefix
             
             // Check for GB format
             if mem_str.ends_with('G') || mem_str.ends_with('g') {
