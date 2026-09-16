@@ -264,18 +264,18 @@ impl Clone for CachedResponse {
 }
 
 #[derive(Debug, Clone)]
-struct CachedHttpClient {
-    http_client: HttpClient,
+pub struct CachedHttpClient {
+    pub http_client: HttpClient,
 }
 
 impl CachedHttpClient {
-    fn new() -> CachedHttpClient {
+    pub fn new() -> CachedHttpClient {
         CachedHttpClient {
             http_client: build_http_client(),
         }
     }
 
-    async fn get_async<T: Into<String> + Clone + Debug>(
+    pub async fn get_async<T: Into<String> + Clone + Debug>(
         &self,
         url: T,
     ) -> Result<Response<AsyncBody>, isahc::Error> {
@@ -293,7 +293,7 @@ impl CachedHttpClient {
         Err(err.unwrap()) // unwrap can't fail
     }
 
-    async fn get_nocache<T: Into<String> + Clone>(
+    pub async fn get_nocache<T: Into<String> + Clone>(
         &self,
         url: T,
     ) -> Result<Response<AsyncBody>, isahc::Error> {
@@ -309,7 +309,7 @@ impl CachedHttpClient {
         Err(err.unwrap()) // unwrap can't fail
     }
 
-    async fn with_headers<T: Into<String>>(
+    pub async fn with_headers<T: Into<String>>(
         &self,
         url: T,
         headers: &[(&str, &str)],
@@ -408,9 +408,9 @@ struct Config {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-struct Author {
-    name: String,
-    link: String,
+pub struct Author {
+    pub name: String,
+    pub link: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
@@ -540,14 +540,14 @@ gen_downloadble_impl!(Mod, "mod");
 gen_downloadble_impl!(Shaderpack, "shaderpack");
 gen_downloadble_impl!(Resourcepack, "resourcepack");
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-struct Loader {
-    r#type: String,
-    version: String,
-    minecraft_version: String,
+pub struct Loader {
+    pub r#type: String,
+    pub version: String,
+    pub minecraft_version: String,
 }
 
 impl Loader {
-    async fn download(&self, root: &Path, _: &str, http_client: &CachedHttpClient) -> PathBuf {
+    pub async fn download(&self, root: &Path, _: &str, http_client: &CachedHttpClient) -> PathBuf {
         match self.r#type.as_str() {
             "fabric" => {
                 download_loader_json(
