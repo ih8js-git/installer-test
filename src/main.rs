@@ -190,11 +190,23 @@ pub fn init_tracking() {
 }
 
 pub async fn track_event(action: &str, data_source_id: &str, additional_data: serde_json::Value) {
-    if let Ok(tracker) = TRACKING_CLIENT.lock() {
-        if let Some(client) = tracker.as_ref() {
-            if let Err(e) = client.track_event(action, data_source_id, additional_data).await {
-                debug!("Tracking failed: {}", e);
-            }
+    // Extract what we need from the lock, then drop the guard before awaiting.
+    let client_info = {
+        let tracker = match TRACKING_CLIENT.lock() {
+            Ok(t) => t,
+            Err(_) => return,
+        };
+        tracker.as_ref().map(|client| (client.http_client.clone(), client.project_id.clone(), client.enabled))
+    };
+
+    if let Some((http_client, project_id, enabled)) = client_info {
+        let temp_client = TrackingClient {
+            http_client,
+            project_id,
+            enabled,
+        };
+        if let Err(e) = temp_client.track_event(action, data_source_id, additional_data).await {
+            debug!("Tracking failed: {}", e);
         }
     }
 }
