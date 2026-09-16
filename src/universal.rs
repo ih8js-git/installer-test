@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use log::{debug, error};
+use log::{debug, error, info};
 
 use isahc::http::StatusCode;
 use isahc::AsyncReadResponseExt;
@@ -460,7 +460,7 @@ let includes: Vec<crate::Include> = universal.include.iter().map(|inc| {
 // Rest of the existing functions remain the same...
 pub async fn load_universal_manifest(http_client: &CachedHttpClient, url: Option<&str>) -> Result<UniversalManifest, ManifestError> {
     let manifest_url = url.unwrap_or("https://raw.githubusercontent.com/Wynncraft-Overhaul/majestic-overhaul/master/universal.json");
-    error!("MANIFEST URL BEING USED: {}", manifest_url);
+    info!("Manifest URL being used: {}", manifest_url);
     debug!("Loading universal manifest from: {}", manifest_url);
     
     let mut retries = 0;
