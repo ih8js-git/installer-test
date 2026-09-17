@@ -290,7 +290,8 @@ pub fn find_mmc_like_launcher(launcher: MmcLikeLauncher) -> Option<MmcLikeComman
         }
     }
 
-    let (_win_name, _mac_rel, linux_name) = launcher.exe_names();
+    #[allow(unused_variables)]
+    let (win_name, mac_rel, linux_name) = launcher.exe_names();
 
     #[cfg(target_os = "windows")]
     {
